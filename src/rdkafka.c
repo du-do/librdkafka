@@ -1553,6 +1553,7 @@ rd_kafka_t *rd_kafka_new (rd_kafka_type_t type, rd_kafka_conf_t *app_conf,
         mtx_unlock(&rk->rk_internal_rkb_lock);
 
 	/* Add initial list of brokers from configuration */
+	/*每个broker都起一个线程*/
 	if (rk->rk_conf.brokerlist) {
 		if (rd_kafka_brokers_add0(rk, rk->rk_conf.brokerlist) == 0)
 			rd_kafka_op_err(rk, RD_KAFKA_RESP_ERR__ALL_BROKERS_DOWN,

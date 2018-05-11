@@ -1028,6 +1028,7 @@ static int rd_kafka_req_response (rd_kafka_broker_t *rkb,
 
 
 	/* Find corresponding request message by correlation id */
+	/*查找接收到的response对应的request*/
 	if (unlikely(!(req =
 		       rd_kafka_waitresp_find(rkb,
 					      rkbuf->rkbuf_reshdr.CorrId)))) {
@@ -1060,6 +1061,7 @@ static int rd_kafka_req_response (rd_kafka_broker_t *rkb,
                 rd_assert(rkbuf->rkbuf_rkb == rkb);
 
 	/* Call callback. */
+	/*调用生成request时设置的回调函数 rd_kafka_broker_fetch_reply*/
         rd_kafka_buf_callback(rkb->rkb_rk, rkb, 0, rkbuf, req);
 
 	return 0;
@@ -1086,7 +1088,7 @@ int rd_kafka_recv (rd_kafka_broker_t *rkb) {
          */
 	if (!(rkbuf = rkb->rkb_recv_buf)) {
 		/* No receive in progress: create new buffer */
-
+				/*生成一个rkbuf缓冲区*/
                 rkbuf = rd_kafka_buf_new(2, RD_KAFKAP_RESHDR_SIZE);
 
 		rkb->rkb_recv_buf = rkbuf;
@@ -1098,7 +1100,7 @@ int rd_kafka_recv (rd_kafka_broker_t *rkb) {
         }
 
         rd_dassert(rd_buf_write_remains(&rkbuf->rkbuf_buf) > 0);
-
+		/*rcvmsg接收消息*/
         r = rd_kafka_transport_recv(rkb->rkb_transport, &rkbuf->rkbuf_buf,
                                     errstr, sizeof(errstr));
         if (unlikely(r <= 0)) {
@@ -1172,6 +1174,7 @@ int rd_kafka_recv (rd_kafka_broker_t *rkb) {
                 rd_atomic64_add(&rkb->rkb_c.rx, 1);
                 rd_atomic64_add(&rkb->rkb_c.rx_bytes,
                                 rd_buf_write_pos(&rkbuf->rkbuf_buf));
+        /*处理接收到的消息*/
 		rd_kafka_req_response(rkb, rkbuf);
 	}
 
@@ -1734,6 +1737,7 @@ int rd_kafka_send (rd_kafka_broker_t *rkb) {
 
 		/* Put buffer on response wait list unless we are not
 		 * expecting a response (required_acks=0). */
+		 /*如果是消费者，rkbuf入rkb_waitresps，等待response*/
 		if (!(rkbuf->rkbuf_flags & RD_KAFKA_OP_F_NO_RESPONSE))
 			rd_kafka_bufq_enq(&rkb->rkb_waitresps, rkbuf);
 		else { /* Call buffer callback for delivery report. */
@@ -2290,6 +2294,7 @@ static void rd_kafka_broker_serve (rd_kafka_broker_t *rkb,
                 }
 
                 /* Serve IO events */
+                /*将outbufs队列中的请求消息发出*/
                 rd_kafka_transport_io_serve(rkb->rkb_transport,
                                             blocking_max_ms);
         }
@@ -2436,6 +2441,7 @@ static int rd_kafka_toppar_producer_serve (rd_kafka_broker_t *rkb,
 
         /* Move messages from locked partition produce queue
          * to broker-local xmit queue. */
+         /*将消息转移到rktp_xmit_msgq链表上*/
         if ((move_cnt = rktp->rktp_msgq.rkmq_msg_cnt) > 0)
                 rd_kafka_msgq_insert_msgq(&rktp->rktp_xmit_msgq,
                                           &rktp->rktp_msgq,
@@ -2460,6 +2466,8 @@ static int rd_kafka_toppar_producer_serve (rd_kafka_broker_t *rkb,
         /* Attempt to fill the batch size, but limit
          * our waiting to queue.buffering.max.ms
          * and batch.num.messages. */
+         /*未达到一个批次所处理的最大消息数时，检查消息是否超时，如果距超时时间还早就直接返回等下次来的消息一起处理，
+         如果不足一个等待周期，继续执行后面的整合压缩流程*/
         if (r < rkb->rkb_rk->rk_conf.batch_num_messages) {
                 rd_ts_t wait_max;
 
@@ -2467,7 +2475,7 @@ static int rd_kafka_toppar_producer_serve (rd_kafka_broker_t *rkb,
                  * queue.buffering.max.ms contract. */
                 wait_max = rd_kafka_msg_enq_time(rkm) +
                         (rkb->rkb_rk->rk_conf.buffering_max_ms * 1000);
-
+				/*检查超时时间*/
                 if (wait_max > now) {
                         /* Wait for more messages or queue.buffering.max.ms
                          * to expire. */
@@ -2484,7 +2492,9 @@ static int rd_kafka_toppar_producer_serve (rd_kafka_broker_t *rkb,
         }
 
         /* Send Produce requests for this toppar */
+        /*把队列里所有消息都整合进rkb->rkb_outbufs.rkbq_bufs，所以这里用 while(1), 整合完后再进来cnt会返回0，上层调用函数也可以继续往下执行发送了*/
         while (1) {
+        		/*整合消息 生成一个rkbuf 并将这个rkbuf加入到 rkb->rkb_outbufs.rkbq_bufs */
                 r = rd_kafka_ProduceRequest(rkb, rktp);
                 if (likely(r > 0))
                         cnt += r;
@@ -3057,6 +3067,7 @@ static int rd_kafka_broker_fetch_toppars (rd_kafka_broker_t *rkb, rd_ts_t now) {
 
 	/* Round-robin start of the list. */
         rktp = rkb->rkb_active_toppar_next;
+        /*循环的往rkbuf里添加不同主题分区的请求*/
         do {
 		struct rd_kafka_toppar_ver *tver;
 
@@ -3100,7 +3111,7 @@ static int rd_kafka_broker_fetch_toppars (rd_kafka_broker_t *rkb, rd_ts_t now) {
 		tver->version = rktp->rktp_fetch_version;
 
 		cnt++;
-	} while ((rktp = CIRCLEQ_LOOP_NEXT(&rkb->rkb_active_toppars,
+	} while ((rktp = CIRCLEQ_LOOP_NEXT(&rkb->rkb_active_toppars,/*如果有多个主题分区，也就会有多个rktp,所以rkbuf请求里的内容也更多*/
                                            rktp, rktp_activelink)) !=
                  rkb->rkb_active_toppar_next);
 
@@ -3136,8 +3147,9 @@ static int rd_kafka_broker_fetch_toppars (rd_kafka_broker_t *rkb, rd_ts_t now) {
 
 	/* Sort toppar versions for quicker lookups in Fetch response. */
 	rd_list_sort(rkbuf->rkbuf_rktp_vers, rd_kafka_toppar_ver_cmp);
-
+	/*rkb_fetching置1，说明已经在请求消息了*/
 	rkb->rkb_fetching = 1;
+	/*请求添加到发送队列*/
         rd_kafka_broker_buf_enq1(rkb, rkbuf, rd_kafka_broker_fetch_reply, NULL);
 
 	return cnt;
@@ -3171,8 +3183,10 @@ static void rd_kafka_broker_consumer_serve (rd_kafka_broker_t *rkb) {
                         min_backoff = rkb->rkb_ts_fetch_backoff;
 
 		/* Send Fetch request message for all underflowed toppars */
+		/*rkb_fetching为0说明可以起获取消息，当获取到消息后rkb_fetching会在回调函数里被置1*/
 		if (!rkb->rkb_fetching) {
                         if (min_backoff < now) {
+                        		/*发送消息请求*/
                                 rd_kafka_broker_fetch_toppars(rkb, now);
                                 rkb->rkb_blocking_max_ms =
                                         rkb->rkb_rk->
@@ -3608,7 +3622,7 @@ rd_kafka_broker_t *rd_kafka_broker_add (rd_kafka_t *rk,
                     RD_KAFKA_PROTO_SASL_PLAINTEXT ||
                     rk->rk_conf.security_protocol == RD_KAFKA_PROTO_SASL_SSL)
                         rd_kafka_sasl_broker_init(rkb);
-
+		/*将创建的rkb加入rk的broker链表上*/
 		TAILQ_INSERT_TAIL(&rkb->rkb_rk->rk_brokers, rkb, rkb_link);
 		(void)rd_atomic32_add(&rkb->rkb_rk->rk_broker_cnt, 1);
 

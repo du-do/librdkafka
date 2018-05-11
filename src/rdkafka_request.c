@@ -1955,6 +1955,7 @@ int rd_kafka_ProduceRequest (rd_kafka_broker_t *rkb, rd_kafka_toppar_t *rktp) {
          * Create ProduceRequest with as many messages from the toppar
          * transmit queue as possible.
          */
+         /*尽可能多的从发送队列里取消息，构建缓冲区，并进行压缩*/
         rkbuf = rd_kafka_msgset_create_ProduceRequest(rkb, rktp,
                                                       &MessageSetSize);
         if (unlikely(!rkbuf))
@@ -1965,7 +1966,7 @@ int rd_kafka_ProduceRequest (rd_kafka_broker_t *rkb, rd_kafka_toppar_t *rktp) {
 
         rd_atomic64_add(&rktp->rktp_c.tx_msgs, cnt);
         rd_atomic64_add(&rktp->rktp_c.tx_bytes, MessageSetSize);
-
+		/*生产者不期望有response，消费者会先发送request，它是期望有response，因为response就是broker发来的消息*/
         if (!rkt->rkt_conf.required_acks)
                 rkbuf->rkbuf_flags |= RD_KAFKA_OP_F_NO_RESPONSE;
 
@@ -1986,7 +1987,7 @@ int rd_kafka_ProduceRequest (rd_kafka_broker_t *rkb, rd_kafka_toppar_t *rktp) {
          * effective timeout for this specific request will be
          * capped by socket.timeout.ms */
         rd_kafka_buf_set_abs_timeout(rkbuf, tmout, now);
-
+		/*将缓冲区加入 rkb->rkb_outbufs.rkbq_bufs 队列里*/
         rd_kafka_broker_buf_enq_replyq(rkb, rkbuf,
                                        RD_KAFKA_NO_REPLYQ,
                                        rd_kafka_handle_Produce,
