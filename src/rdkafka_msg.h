@@ -163,6 +163,7 @@ rd_kafka_msg_t *rd_kafka_message2msg (rd_kafka_message_t *rkmessage) {
  * @brief Message queue with message and byte counters.
  */
 TAILQ_HEAD(rd_kafka_msgs_head_s, rd_kafka_msg_s);
+/*消息队列结构*/
 typedef struct rd_kafka_msgq_s {
         struct rd_kafka_msgs_head_s rkmq_msgs;  /* TAILQ_HEAD */
         int32_t rkmq_msg_cnt;

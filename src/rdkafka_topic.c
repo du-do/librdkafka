@@ -1129,7 +1129,7 @@ int rd_kafka_topic_scan_all (rd_kafka_t *rk, rd_ts_t now) {
                                               "down"));
                                 query_this = 1;
                         }
-
+            /*检查当前主题分区的队列中的消息是否有超时的，如果有则将消息从rktp_msgq移出加入timeout队列*/
 			if (rd_kafka_msgq_age_scan(&rktp->rktp_msgq,
 						   &timedout, now) > 0)
 				did_tmout = 1;

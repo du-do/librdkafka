@@ -1021,6 +1021,7 @@ static void rd_kafka_stats_emit_all (rd_kafka_t *rk) {
 		rd_avg_rollover(&int_latency, &rkb->rkb_avg_int_latency);
 		rd_avg_rollover(&rtt, &rkb->rkb_avg_rtt);
 		rd_avg_rollover(&throttle, &rkb->rkb_avg_throttle);
+		/*这些信息都写在了 buf 中*/
 		_st_printf("%s\"%s\": { "/*open broker*/
 			   "\"name\":\"%s\", "
 			   "\"nodeid\":%"PRId32", "
@@ -1242,12 +1243,17 @@ static int rd_kafka_thread_main (void *arg) {
 	 * to synchronise state. */
 	rd_kafka_wrlock(rk);
 	rd_kafka_wrunlock(rk);
-
+    /*1秒扫描主题和分区，查找超时消息，主题元数据是否过期*/
 	rd_kafka_timer_start(&rk->rk_timers, &tmr_topic_scan, 1000000,
 			     rd_kafka_topic_scan_tmr_cb, NULL);
+    /*获取了broker    主题分区 leader的相关信息            生成rko 挂在rk->rk_rep 队列上*/
 	rd_kafka_timer_start(&rk->rk_timers, &tmr_stats_emit,
 			     rk->rk_conf.stats_interval_ms * 1000ll,
 			     rd_kafka_stats_emit_tmr_cb, NULL);
+	    /*定时刷新主题元数据
+	      #主题元数据刷新间隔，以毫秒为单位。 元数据在错误和连接时自动刷新。 使用-1来禁用间隔刷新
+          #范围：-1 .. 3600000	默认值：300000
+          #topic.metadata.refresh.interval.ms=300000*/
         if (rk->rk_conf.metadata_refresh_interval_ms > 0)
                 rd_kafka_timer_start(&rk->rk_timers, &tmr_metadata_refresh,
                                      rk->rk_conf.metadata_refresh_interval_ms *
@@ -1455,8 +1461,14 @@ rd_kafka_t *rd_kafka_new (rd_kafka_type_t type, rd_kafka_conf_t *app_conf,
 	if (rk->rk_type == RD_KAFKA_PRODUCER) {
 		mtx_init(&rk->rk_curr_msgs.lock, mtx_plain);
 		cnd_init(&rk->rk_curr_msgs.cnd);
+		/*
+        #生产者队列里允许的最大消息数
+        #范围：1 .. 10000000 	默认值：100000
+        #queue.buffering.max.messages=100000
+		*/
 		rk->rk_curr_msgs.max_cnt =
 			rk->rk_conf.queue_buffering_max_msgs;
+			    /*queue_buffering_max_kbytes 默认值 1048576，缓存最大消息长度为1G*/
                 if ((unsigned long long)rk->rk_conf.queue_buffering_max_kbytes * 1024 >
                     (unsigned long long)SIZE_MAX)
                         rk->rk_curr_msgs.max_size = SIZE_MAX;
@@ -1568,6 +1580,9 @@ rd_kafka_t *rd_kafka_new (rd_kafka_type_t type, rd_kafka_conf_t *app_conf,
         /* Free user supplied conf's base pointer on success,
          * but not the actual allocated fields since the struct
          * will have been copied in its entirety above. */
+         /*此处释放的是用户传进来的app_conf，如果rk创建成功会释放。
+         *个人认为这样处理并不合理，app_conf应该在外面分配，也在外面释放。这样容易混淆
+         */
         if (app_conf)
                 rd_free(app_conf);
 	rd_kafka_set_last_error(0, 0);

@@ -56,7 +56,8 @@ static RD_UNUSED void rd_kafka_offset_stats_reset (struct offset_stats *offs) {
 
 
 /**
- * Topic + Partition combination
+ * Topic + Partition combination  主题分区结构，数据的收发都是基于 主题+分区
+ * rk->rk_topics->s_rktp->rktp  
  */
 struct rd_kafka_toppar_s { /* rd_kafka_toppar_t */
 	TAILQ_ENTRY(rd_kafka_toppar_s) rktp_rklink;  /* rd_kafka_t link */
@@ -86,7 +87,7 @@ struct rd_kafka_toppar_s { /* rd_kafka_toppar_t */
         //LOCK: toppar_lock. toppar_insert_msg(), concat_msgq()
         //LOCK: toppar_lock. toppar_enq_msg(), deq_msg(), toppar_retry_msgq()
         int                rktp_msgq_wakeup_fd; /* Wake-up fd */
-	rd_kafka_msgq_t    rktp_msgq;      /* application->rdkafka queue.
+	rd_kafka_msgq_t    rktp_msgq; /*本地消息队列，缓存消息然后批量处理，并非发送队列*/ /* application->rdkafka queue. 
 					    * protected by rktp_lock */
         rd_kafka_msgq_t    rktp_xmit_msgq; /* internal broker xmit queue.
                                             * local to broker thread. */

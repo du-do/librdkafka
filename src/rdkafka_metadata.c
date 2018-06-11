@@ -831,6 +831,7 @@ rd_kafka_metadata_refresh_known_topics (rd_kafka_t *rk, rd_kafka_broker_t *rkb,
                 rk = rkb->rkb_rk;
 
         rd_list_init(&topics, 8, rd_free);
+        /*取出来所有的主题名， 放到了topics队列*/
         rd_kafka_local_topics_to_list(rk, &topics);
 
         if (rd_list_cnt(&topics) == 0)
