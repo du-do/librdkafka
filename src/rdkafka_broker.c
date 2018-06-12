@@ -3469,6 +3469,7 @@ rd_kafka_broker_t *rd_kafka_broker_internal (rd_kafka_t *rk) {
  * for serving unassigned toppar's op queues.
  *
  * Locks: rd_kafka_wrlock(rk) must be held
+ 添加一个broker
  */
 rd_kafka_broker_t *rd_kafka_broker_add (rd_kafka_t *rk,
 					rd_kafka_confsource_t source,
@@ -3593,6 +3594,7 @@ rd_kafka_broker_t *rd_kafka_broker_add (rd_kafka_t *rk,
 	 * the broker thread until we've finalized the rkb. */
 	rd_kafka_broker_lock(rkb);
         rd_kafka_broker_keep(rkb); /* broker thread's refcnt */
+    /*borker 线程*/
 	if (thrd_create(&rkb->rkb_thread,
 			rd_kafka_broker_thread_main, rkb) != thrd_success) {
 		char tmp[512];
@@ -3849,13 +3851,13 @@ int rd_kafka_brokers_add0 (rd_kafka_t *rk, const char *brokerlist) {
 		if (rd_kafka_broker_name_parse(rk, &s, &proto,
 					       &host, &port) == -1)
 			break;
-
+        //获取写锁，把所有broker都添加上才释放
 		rd_kafka_wrlock(rk);
 
 		if ((rkb = rd_kafka_broker_find(rk, proto, host, port)) &&
 		    rkb->rkb_source == RD_KAFKA_CONFIGURED) {
 			cnt++;
-		} else if (rd_kafka_broker_add(rk, RD_KAFKA_CONFIGURED,
+		} else if (rd_kafka_broker_add(rk, RD_KAFKA_CONFIGURED,   //添加一个broker，里面有起线程
 					       proto, host, port,
 					       RD_KAFKA_NODEID_UA) != NULL)
 			cnt++;

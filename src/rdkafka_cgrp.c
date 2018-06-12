@@ -169,7 +169,7 @@ void rd_kafka_cgrp_destroy_final (rd_kafka_cgrp_t *rkcg) {
 }
 
 
-
+/*生成一个cgrp类型的组结构，其中rkcg_subscribed_topics队列应该用来控制接收消息的*/
 
 rd_kafka_cgrp_t *rd_kafka_cgrp_new (rd_kafka_t *rk,
                                     const rd_kafkap_str_t *group_id,
@@ -240,7 +240,7 @@ static rd_kafka_broker_t *rd_kafka_cgrp_select_broker (rd_kafka_cgrp_t *rkcg) {
         /* No need for a managing broker when cgrp is terminated */
         if (rkcg->rkcg_state == RD_KAFKA_CGRP_STATE_TERM)
                 return NULL;
-
+        /*获取rk的读锁*/
         rd_kafka_rdlock(rkcg->rkcg_rk);
         /* Try to find the coordinator broker, if it isn't found
          * move the cgrp to any other Up broker which will
@@ -250,10 +250,12 @@ static rd_kafka_broker_t *rd_kafka_cgrp_select_broker (rd_kafka_cgrp_t *rkcg) {
         if (rkcg->rkcg_coord_id != -1)
                 rkb = rd_kafka_broker_find_by_nodeid(rkcg->rkcg_rk,
                                                      rkcg->rkcg_coord_id);
+        /*找一个up状态的rkb，如果rkcg_coord_id为-1就找链表上第一个rkb，否则找指定rkcg_coord_id的rkb*/                                             
         if (!rkb)
                 rkb = rd_kafka_broker_prefer(rkcg->rkcg_rk,
                                              rkcg->rkcg_coord_id,
                                              RD_KAFKA_BROKER_STATE_UP);
+        /*获取内部rkb，此rkb在rd_kafka_new函数中创建*/
         if (!rkb)
                 rkb = rd_kafka_broker_internal(rkcg->rkcg_rk);
 
@@ -362,8 +364,8 @@ int rd_kafka_cgrp_reassign_broker (rd_kafka_cgrp_t *rkcg) {
 		if (is_coord)
                         rd_kafka_cgrp_set_state(rkcg, RD_KAFKA_CGRP_STATE_WAIT_BROKER_TRANSPORT);
                 else
-                        rd_kafka_cgrp_set_state(rkcg, RD_KAFKA_CGRP_STATE_WAIT_BROKER);
-
+                        rd_kafka_cgrp_set_state(rkcg, RD_KAFKA_CGRP_STATE_WAIT_BROKER); //设置为等待broker状态，在线程主函数循环中会重新获取broker
+                /*释放引用计数， 因为rd_kafka_cgrp_assign_broker的时候已经加过引用计数了*/
                 if (rkb)
                         rd_kafka_broker_destroy(rkb);
                 return 0; /* No change */
@@ -384,6 +386,7 @@ int rd_kafka_cgrp_reassign_broker (rd_kafka_cgrp_t *rkcg) {
         rd_kafka_cgrp_set_state(rkcg, RD_KAFKA_CGRP_STATE_WAIT_BROKER);
 
         if (rkb) {
+        /*初次获取rkb，将rkb记录在rkcg->rkcg_rkb*/
 		rd_kafka_cgrp_assign_broker(rkcg, rkb);
 		rd_kafka_broker_destroy(rkb); /* from select_broker() */
 	}

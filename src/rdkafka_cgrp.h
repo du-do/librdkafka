@@ -48,7 +48,7 @@
 extern const char *rd_kafka_cgrp_join_state_names[];
 
 /**
- * Client group
+ * Client group 客户端组结构
  */
 typedef struct rd_kafka_cgrp_s {
         TAILQ_ENTRY(rd_kafka_cgrp_s) rkcg_rkb_link;  /* rkb_cgrps */
@@ -155,7 +155,7 @@ typedef struct rd_kafka_cgrp_s {
 
 	int                rkcg_assigned_cnt;       /* Assigned partitions */
 
-        int32_t            rkcg_coord_id;           /* Current coordinator id */
+        int32_t            rkcg_coord_id;           /* Current coordinator id */ /*用来存broker ID*/
 
         int32_t            rkcg_generation_id;      /* Current generation id */
 

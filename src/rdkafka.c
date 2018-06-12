@@ -1261,16 +1261,18 @@ static int rd_kafka_thread_main (void *arg) {
                                      rd_kafka_metadata_refresh_cb, NULL);
 
         if (rk->rk_cgrp) {
+                /*获取一个可用的rkb，记录在rkcg->rkcg_rkb中*/
                 rd_kafka_cgrp_reassign_broker(rk->rk_cgrp);
                 rd_kafka_q_fwd_set(rk->rk_cgrp->rkcg_ops, rk->rk_ops);
         }
-
+    /*主循环*/
 	while (likely(!rd_kafka_terminating(rk) ||
 		      rd_kafka_q_len(rk->rk_ops))) {
                 rd_ts_t sleeptime = rd_kafka_timers_next(
                         &rk->rk_timers, 1000*1000/*1s*/, 1/*lock*/);
                 rd_kafka_q_serve(rk->rk_ops, (int)(sleeptime / 1000), 0,
                                  RD_KAFKA_Q_CB_CALLBACK, NULL, NULL);
+        /*这里会循环的处理rk_cgrp的状态，例如一开始没获取到broker，后续会在此函数中重新获取*/                         
 		if (rk->rk_cgrp) /* FIXME: move to timer-triggered */
 			rd_kafka_cgrp_serve(rk->rk_cgrp);
 		rd_kafka_timers_run(&rk->rk_timers, RD_POLL_NOWAIT);
@@ -1447,6 +1449,7 @@ rd_kafka_t *rd_kafka_new (rd_kafka_type_t type, rd_kafka_conf_t *app_conf,
 	rk->rk_client_id = rd_kafkap_str_new(rk->rk_conf.client_id_str,-1);
 
         /* Convert group.id to kafka string (may be NULL) */
+        /*将配置中的group.id拷贝到rk->rk_group_id*/
         rk->rk_group_id = rd_kafkap_str_new(rk->rk_conf.group_id_str,-1);
 
         /* Config fixups */
@@ -1507,6 +1510,7 @@ rd_kafka_t *rd_kafka_new (rd_kafka_type_t type, rd_kafka_conf_t *app_conf,
 #endif
 
 	/* Client group, eligible both in consumer and producer mode. */
+	/*producer一般不设置group，所以rk_cgrp组结构多数情况作用于consumer*/
         if (type == RD_KAFKA_CONSUMER &&
 	    RD_KAFKAP_STR_LEN(rk->rk_group_id) > 0)
                 rk->rk_cgrp = rd_kafka_cgrp_new(rk,
@@ -1534,6 +1538,7 @@ rd_kafka_t *rd_kafka_new (rd_kafka_type_t type, rd_kafka_conf_t *app_conf,
 
 	/* Lock handle here to synchronise state, i.e., hold off
 	 * the thread until we've finalized the handle. */
+	 /*这里先把写锁拿到，rd_kafka_thread_main一开始也获取写锁，所以线程一开始会阻塞*/
 	rd_kafka_wrlock(rk);
 
 	/* Create handler thread */
@@ -1559,6 +1564,7 @@ rd_kafka_t *rd_kafka_new (rd_kafka_type_t type, rd_kafka_conf_t *app_conf,
         rk->rk_eos.TransactionalId = rd_kafkap_str_new(NULL, 0);
 
         mtx_lock(&rk->rk_internal_rkb_lock);
+        /*创建一个内部rkb*/
 	rk->rk_internal_rkb = rd_kafka_broker_add(rk, RD_KAFKA_INTERNAL,
 						  RD_KAFKA_PROTO_PLAINTEXT,
 						  "", 0, RD_KAFKA_NODEID_UA);
