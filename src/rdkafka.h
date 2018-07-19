@@ -2791,6 +2791,7 @@ rd_kafka_resp_err_t rd_kafka_consumer_close (rd_kafka_t *rk);
  * @brief Atomic assignment of partitions to consume.
  *
  * The new \p partitions will replace the existing assignment.
+ 新接收分区会替换掉已存在的接收分区
  *
  * When used from a rebalance callback the application shall pass the
  * partition list passed to the callback (or a copy of it) (even if the list

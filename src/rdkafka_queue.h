@@ -44,11 +44,11 @@ TAILQ_HEAD(rd_kafka_op_tailq, rd_kafka_op_s);
 
 struct rd_kafka_q_s {
 	mtx_t  rkq_lock;
-	cnd_t  rkq_cond;
+	cnd_t  rkq_cond;// 队列中放入新的元素时, 用条件变量唤醒相应的等待线程
 	struct rd_kafka_q_s *rkq_fwdq; /* Forwarded/Routed queue.
 					* Used in place of this queue
 					* for all operations. */
-
+    // 放入队列的操作都存在这个tailq队列里
 	struct rd_kafka_op_tailq rkq_q;  /* TAILQ_HEAD(, rd_kafka_op_s) */
 	int           rkq_qlen;      /* Number of entries in queue */
         int64_t       rkq_qsize;     /* Size of all entries in queue */
@@ -61,6 +61,7 @@ struct rd_kafka_q_s {
                                       * to rd_kafka_queue_forward. */
 
         rd_kafka_t   *rkq_rk;
+        //队列中放入新的元素时, 用向fd写入数据的方式唤醒相应的等待线程
 	struct rd_kafka_q_io *rkq_qio;   /* FD-based application signalling */
 
         /* Op serve callback (optional).
@@ -319,11 +320,11 @@ int rd_kafka_op_cmp_prio (const void *_a, const void *_b) {
  */
 static RD_INLINE RD_UNUSED void
 rd_kafka_q_enq0 (rd_kafka_q_t *rkq, rd_kafka_op_t *rko, int at_head) {
-    if (likely(!rko->rko_prio))
+    if (likely(!rko->rko_prio))//优先级为0，放入队尾
         TAILQ_INSERT_TAIL(&rkq->rkq_q, rko, rko_link);
-    else if (at_head)
+    else if (at_head)   //强制插入队头
             TAILQ_INSERT_HEAD(&rkq->rkq_q, rko, rko_link);
-    else
+    else    //按优先级插入
         TAILQ_INSERT_SORTED(&rkq->rkq_q, rko, rd_kafka_op_t *,
                             rko_link, rd_kafka_op_cmp_prio);
     rkq->rkq_qlen++;
@@ -363,7 +364,7 @@ int rd_kafka_q_enq (rd_kafka_q_t *rkq, rd_kafka_op_t *rko) {
                 rko->rko_serve = rkq->rkq_serve;
                 rko->rko_serve_opaque = rkq->rkq_opaque;
         }
-
+    // 如果有rkq_fwdq队列,优先入rkq_fwdq队列, 没有直接入rkq_q的队尾
 	if (!(fwdq = rd_kafka_q_fwd_get(rkq, 0))) {
 		rd_kafka_q_enq0(rkq, rko, 0);
 		cnd_signal(&rkq->rkq_cond);
@@ -494,7 +495,7 @@ int rd_kafka_q_concat0 (rd_kafka_q_t *rkq, rd_kafka_q_t *srcq, int do_lock) {
 
 	return r;
 }
-
+//两个队列拼接
 #define rd_kafka_q_concat(dstq,srcq) rd_kafka_q_concat0(dstq,srcq,1/*lock*/)
 
 

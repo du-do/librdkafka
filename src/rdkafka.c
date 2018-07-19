@@ -1263,6 +1263,7 @@ static int rd_kafka_thread_main (void *arg) {
         if (rk->rk_cgrp) {
                 /*获取一个可用的rkb，记录在rkcg->rkcg_rkb中*/
                 rd_kafka_cgrp_reassign_broker(rk->rk_cgrp);
+                //设置fwd队列
                 rd_kafka_q_fwd_set(rk->rk_cgrp->rkcg_ops, rk->rk_ops);
         }
     /*主循环*/

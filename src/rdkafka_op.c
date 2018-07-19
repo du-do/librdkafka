@@ -426,9 +426,13 @@ rd_kafka_op_t *rd_kafka_op_req0 (rd_kafka_q_t *destq,
         rd_kafka_op_t *reply;
 
         /* Indicate to destination where to send reply. */
+
+        //rko->rko_replyq.q = recvq  并且加了recvq的引用计数
         rd_kafka_op_set_replyq(rko, recvq, NULL);
 
         /* Enqueue op */
+        //destq 就是 rkcg->rkcg_ops   将rko加入到rkcg->rkcg_ops->rkq_q的队尾 
+        //里面是递归调用
         if (!rd_kafka_q_enq(destq, rko))
                 return NULL;
 
@@ -448,9 +452,9 @@ rd_kafka_op_t *rd_kafka_op_req (rd_kafka_q_t *destq,
                                 int timeout_ms) {
         rd_kafka_q_t *recvq;
         rd_kafka_op_t *reply;
-
+        //创建一个新的队列
         recvq = rd_kafka_q_new(destq->rkq_rk);
-
+        
         reply = rd_kafka_op_req0(destq, recvq, rko, timeout_ms);
 
         rd_kafka_q_destroy_owner(recvq);

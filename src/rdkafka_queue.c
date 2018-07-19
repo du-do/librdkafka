@@ -324,7 +324,7 @@ rd_kafka_op_t *rd_kafka_q_pop_serve (rd_kafka_q_t *rkq, int timeout_ms,
         rd_kafka_q_t *fwdq;
 
         rd_dassert(cb_type);
-
+    // RD_POLL_INFINITE等同于一直等待,直到condition被signal
 	if (timeout_ms == RD_POLL_INFINITE)
 		timeout_ms = INT_MAX;
 
@@ -338,6 +338,7 @@ rd_kafka_op_t *rd_kafka_q_pop_serve (rd_kafka_q_t *rkq, int timeout_ms,
 
                         /* Filter out outdated ops */
                 retry:
+                        //这里rko是从rkq的头开始找的
                         while ((rko = TAILQ_FIRST(&rkq->rkq_q)) &&
                                !(rko = rd_kafka_op_filter(rkq, rko, version)))
                                 ;
