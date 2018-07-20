@@ -557,7 +557,7 @@ shptr_rd_kafka_toppar_t *rd_kafka_toppar_desired_add (rd_kafka_itopic_t *rkt,
                                                       int32_t partition) {
 	shptr_rd_kafka_toppar_t *s_rktp;
         rd_kafka_toppar_t *rktp;
-
+    //如果rkt->rkt_p[partition] 中有记录就返回rktp结构
 	if ((s_rktp = rd_kafka_toppar_get(rkt,
                                           partition, 0/*no_ua_on_miss*/))) {
                 rktp = rd_kafka_toppar_s2i(s_rktp);
@@ -572,16 +572,16 @@ shptr_rd_kafka_toppar_t *rd_kafka_toppar_desired_add (rd_kafka_itopic_t *rkt,
 		rd_kafka_toppar_unlock(rktp);
 		return s_rktp;
 	}
-
+    //查找rkt 的 rkt->rkt_desp 链表
 	if ((s_rktp = rd_kafka_toppar_desired_get(rkt, partition)))
 		return s_rktp;
-
+    //如果都没有  生成一个新rktp
 	s_rktp = rd_kafka_toppar_new(rkt, partition);
         rktp = rd_kafka_toppar_s2i(s_rktp);
 
         rd_kafka_toppar_lock(rktp);
         rktp->rktp_flags |= RD_KAFKA_TOPPAR_F_UNKNOWN;
-        rd_kafka_toppar_desired_add0(rktp);
+        rd_kafka_toppar_desired_add0(rktp); //将新生成的rktp 加入到rkt->rkt_desp 链表上
         rd_kafka_toppar_unlock(rktp);
 
 	rd_kafka_dbg(rkt->rkt_rk, TOPIC, "DESP",
@@ -2107,7 +2107,7 @@ static void rd_kafka_toppar_op (rd_kafka_toppar_t *rktp,
 			rko->rko_u.fetch_start.rkcg = rkcg;
 		rko->rko_u.fetch_start.offset = offset;
 	}
-
+    //将rko加入到了rktp->rktp_ops 队列中
 	rd_kafka_toppar_op0(rktp, rko, replyq);
 }
 
@@ -2118,6 +2118,7 @@ static void rd_kafka_toppar_op (rd_kafka_toppar_t *rktp,
  *  'offset' is the initial offset
  *  'fwdq' is an optional queue to forward messages to, if this is NULL
  *  then messages will be enqueued on rktp_fetchq.
+    fwdq如果为NULL则消息被放到rktp_fetchq上
  *  'replyq' is an optional queue for handling the consume_start ack.
  *
  * This is the thread-safe interface that can be called from any thread.

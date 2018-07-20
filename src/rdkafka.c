@@ -1733,7 +1733,7 @@ int rd_kafka_consume_start0 (rd_kafka_itopic_t *rkt, int32_t partition,
 		return -1;
 
         }
-
+        //开始接收消息，如果从rd_kafka_consumer_start调过来的话，rkq为NULL
         rd_kafka_toppar_op_fetch_start(rd_kafka_toppar_s2i(s_rktp), offset,
 				       rkq, RD_KAFKA_NO_REPLYQ);
 
