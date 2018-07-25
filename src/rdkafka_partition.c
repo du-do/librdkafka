@@ -208,6 +208,7 @@ shptr_rd_kafka_toppar_t *rd_kafka_toppar_new0 (rd_kafka_itopic_t *rkt,
          * value on the low end to a reasonable value to avoid flooding
          * the brokers with OffsetRequests when our statistics interval is low.
          * FIXME: Use a global timer to collect offsets for all partitions */
+         // 开始一个timer, 来定时统计消息的lag情况, 目前看是一个`rd_kafka_toppar_t`对象就一个timer, 太多了, 可以用时间轮来作所有partiton的timer
         if (rktp->rktp_rkt->rkt_rk->rk_conf.stats_interval_ms > 0 &&
             rkt->rkt_rk->rk_type == RD_KAFKA_CONSUMER &&
             rktp->rktp_partition != RD_KAFKA_PARTITION_UA) {
@@ -222,7 +223,7 @@ shptr_rd_kafka_toppar_t *rd_kafka_toppar_new0 (rd_kafka_itopic_t *rkt,
         }
 
         rktp->rktp_s_rkt = rd_kafka_topic_keep(rkt);
-
+    // 设置其fwd op queue到rd_kakfa_t中的rd_ops, 这样这个rd_kafka_toppar_t对象用到的ops_queue就是rd_kafka_t的了
 	rd_kafka_q_fwd_set(rktp->rktp_ops, rkt->rkt_rk->rk_ops);
 	rd_kafka_dbg(rkt->rkt_rk, TOPIC, "TOPPARNEW", "NEW %s [%"PRId32"] %p (at %s:%d)",
 		     rkt->rkt_topic->str, rktp->rktp_partition, rktp,
@@ -2130,7 +2131,10 @@ rd_kafka_resp_err_t rd_kafka_toppar_op_fetch_start (rd_kafka_toppar_t *rktp,
 	int32_t version;
 
         rd_kafka_q_lock(rktp->rktp_fetchq);
+        //如果有转发队列，而且此rktp没设置转发队列，就将此rktp的消息移到fwdq上
+        //所以这里会将所有分区的消息都移到fwdq上
         if (fwdq && !(rktp->rktp_fetchq->rkq_flags & RD_KAFKA_Q_F_FWD_APP))
+                //如果设置了转发队列，则将rktp->rktp_fetchq队列上的消息，转到fwdq上去。
                 rd_kafka_q_fwd_set0(rktp->rktp_fetchq, fwdq,
                                     0, /* no do_lock */
                                     0 /* no fwd_app */);

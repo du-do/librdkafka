@@ -898,6 +898,7 @@ rd_kafka_message_t *rd_kafka_message_get (rd_kafka_op_t *rko) {
         {
         case RD_KAFKA_OP_FETCH:
                 /* Use embedded rkmessage */
+                //获取消息 rkm_rkmessage
                 rkmessage = &rko->rko_u.fetch.rkm.rkm_rkmessage;
                 break;
 

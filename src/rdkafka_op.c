@@ -187,7 +187,7 @@ rd_kafka_op_t *rd_kafka_op_new0 (const char *source, rd_kafka_op_type_t type) {
                 [RD_KAFKA_OP_WAKEUP] = 0,
 	};
 	size_t tsize = op2size[type & ~RD_KAFKA_OP_FLAGMASK];
-
+    //这里rko->rko_u是一个union，这里计算是只分配了指定的类型的空间，把union多余的空间给减掉了
 	rko = rd_calloc(1, sizeof(*rko)-sizeof(rko->rko_u)+tsize);
 	rko->rko_type = type;
 

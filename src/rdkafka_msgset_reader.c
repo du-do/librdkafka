@@ -172,6 +172,7 @@ rd_kafka_msgset_reader_init (rd_kafka_msgset_reader_t *msetr,
 
         /* All parsed messages are put on this temporary op
          * queue first and then moved in one go to the real op queue. */
+        //所有已解析的消息首先放在此临时操作队列中，然后一次性移动到实际的操作队列中
         rd_kafka_q_init(&msetr->msetr_rkq, msetr->msetr_rkb->rkb_rk);
 
         /* Make sure enqueued ops get the correct serve/opaque reflecting the
@@ -419,7 +420,7 @@ rd_kafka_msgset_reader_decompress (rd_kafka_msgset_reader_t *msetr,
 
                 /* Temporarily replace read buffer with uncompressed buffer */
                 msetr->msetr_rkbuf = rkbufz;
-
+                printf("%s %d\n", __func__, __LINE__);
                 /* Read messages */
                 err = rd_kafka_msgset_reader_msgs_v2(msetr);
 
@@ -1084,6 +1085,8 @@ rd_kafka_msgset_reader_run (rd_kafka_msgset_reader_t *msetr) {
 
         /* Concat all messages&errors onto the parent's queue
          * (the partition's fetch queue) */
+        //将msetr_rkq上的消息移到msetr_par_rkq队列中，在ini函数中 msetr->msetr_par_rkq = rktp->rktp_fetchq
+        //所以此处是将消息移到了rktp->rktp_fetchq上
         if (rd_kafka_q_concat(msetr->msetr_par_rkq, &msetr->msetr_rkq) != -1) {
                 /* Update partition's fetch offset based on
                  * last message's offest. */

@@ -606,7 +606,7 @@ typedef struct rd_kafka_topic_partition_s {
         char        *topic;             /**< Topic name */
         int32_t      partition;         /**< Partition */
 	int64_t      offset;            /**< Offset */
-        void        *metadata;          /**< Metadata */
+        void        *metadata;          /**< Metadata */  //主要是leader, replicas, isr等信息
         size_t       metadata_size;     /**< Metadata size */
         void        *opaque;            /**< Application opaque */
         rd_kafka_resp_err_t err;        /**< Error code, depending on use. */

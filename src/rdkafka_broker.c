@@ -1059,7 +1059,7 @@ static int rd_kafka_req_response (rd_kafka_broker_t *rkb,
                 rd_kafka_broker_keep(rkbuf->rkbuf_rkb);
         } else
                 rd_assert(rkbuf->rkbuf_rkb == rkb);
-
+    printf("%s %d\n", __func__, __LINE__);
 	/* Call callback. */
 	/*调用生成request时设置的回调函数 rd_kafka_broker_fetch_reply*/
         rd_kafka_buf_callback(rkb->rkb_rk, rkb, 0, rkbuf, req);
@@ -3150,6 +3150,7 @@ static int rd_kafka_broker_fetch_toppars (rd_kafka_broker_t *rkb, rd_ts_t now) {
 	/*rkb_fetching置1，说明已经在请求消息了*/
 	rkb->rkb_fetching = 1;
 	/*请求添加到发送队列*/
+	//设置请求回调rd_kafka_broker_fetch_reply，回调函数里会处理broker传过来的消息
         rd_kafka_broker_buf_enq1(rkb, rkbuf, rd_kafka_broker_fetch_reply, NULL);
 
 	return cnt;
@@ -3209,7 +3210,8 @@ static void rd_kafka_broker_consumer_serve (rd_kafka_broker_t *rkb) {
 		/* Check and move retry buffers */
 		if (unlikely(rd_atomic32_get(&rkb->rkb_retrybufs.rkbq_cnt) > 0))
 			rd_kafka_broker_retry_bufs_move(rkb);
-
+        //接收broker发过来的数据，并且调用rd_kafka_broker_fetch_toppars 中设置的回调函数
+        //解析数据生成消费者需要的消息
 		rd_kafka_broker_serve(rkb,
                                       now + (rkb->rkb_blocking_max_ms * 1000));
 
